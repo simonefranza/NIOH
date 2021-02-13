@@ -2,7 +2,7 @@ CC            := gcc
 CCFLAGS       := -Wall -Wextra -pedantic -g 
 CCLINKS 			:= -lcurses -lpthread -lpanel
 PROG 					:= main
-LIBS 					:= machdr.h wManager.c
+LIBS 					:= machdr.c wManager.c nw_header.h
 
 .PHONY: bin 
 

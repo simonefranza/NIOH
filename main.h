@@ -1,23 +1,16 @@
 #pragma once
 
 #include <stdint.h>
-#include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <arpa/inet.h>
 #include <pthread.h>
 #include "machdr.h"
 #include "wManager.h"
+#include "nw_header.h"
 
 #define MAC_COLON_LEN 17
 #define DEFAULT_IF "wlp3s0"
-
-struct arpCont
-{
-  unsigned char sender_mac[ETH_ALEN];
-  struct in_addr sender_ip;
-  unsigned char target_mac[ETH_ALEN];
-  struct in_addr target_ip;
-} __attribute__ ((__packed__));
+#define PLUG_IF "wlxdc4ef4086b85"
+#define VIRT_NET "ni0h"
 
 typedef struct mapping
 {
@@ -47,6 +40,7 @@ typedef struct sender_pck_
   int connectionFd_;
   winStruct* wins_;
 } sender_pck;
+
 typedef struct ptids_
 {
   pthread_t wm;

