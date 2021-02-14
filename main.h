@@ -10,7 +10,7 @@
 #define MAC_COLON_LEN 17
 #define DEFAULT_IF "wlp3s0"
 #define PLUG_IF "wlxdc4ef4086b85"
-#define VIRT_NET "ni0h"
+#define VIRT_NET "wlxdc4ef4086b85"
 
 typedef struct mapping
 {
@@ -40,6 +40,15 @@ typedef struct sender_pck_
   int connectionFd_;
   winStruct* wins_;
 } sender_pck;
+
+typedef struct deauth_pck_
+{
+  int connectionFd_;
+  winStruct* wins_;
+  char* dmac;
+  char* bssid;
+
+} deauth_pck;
 
 typedef struct ptids_
 {

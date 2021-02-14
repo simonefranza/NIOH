@@ -3,6 +3,7 @@
 #include <curses.h>
 #include <panel.h>
 #include <semaphore.h>
+#include <pthread.h>
 
 #define TAB_NAMES {"ARP", "EVIL TWIN", "OTHER"}
 #define TABS_SIZE 3
@@ -19,6 +20,7 @@ typedef struct area_info_
   int num_row;
   int startx;
   int starty;
+  pthread_mutex_t lock;
 }area_info;
 
 typedef struct windows
@@ -27,6 +29,7 @@ typedef struct windows
   int max_col;
   sem_t win_sem;
   area_info* tab_bar;
+  area_info* cmd_bar;
   area_info* bot_bar;
   area_info* help_win;
   area_info* arp_left;
@@ -45,3 +48,4 @@ void showHelp(winStruct* wins);
 area_info* setupArea(int num_row, int num_col, int starty, int startx);
 void selectNextLine(area_info* active_win);
 void selectPrevLine(area_info* active_win);
+void parseCommand(winStruct* wins, char* buffer);

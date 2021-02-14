@@ -19,12 +19,30 @@ void initScreen(winStruct* wins)
   keypad(stdscr, TRUE);
   getmaxyx(stdscr, wins->max_row, wins->max_col);
   clear();
+  refresh();
 
   int max_row = wins->max_row;
   int max_col = wins->max_col;
-  wins->arp_left_cont = setupArea(max_row - 3, max_col / 2, 2, 0);
+  wins->arp_left_cont = setupArea(max_row - 2, max_col / 2, 1, 0);
+  int col = wins->arp_left_cont->num_col;
+  char* ipHeader = "        IP       |";
+  char* macHeader = "        MAC        |";
+  char* hostHeader = "HOSTNAME";
+  int starting_space= (col - strlen(ipHeader) - strlen(macHeader))/2;
   wborder(wins->arp_left_cont->win, ' ', ACS_VLINE, ' ', ' ', ' ', ACS_VLINE, ' ', ' ');
-  wins->arp_left = setupArea(max_row - 3, max_col / 2 - 1, 2, 0);
+
+  wmove(wins->arp_left_cont->win, 1, 0);
+  wprintw(wins->arp_left_cont->win, "%s%s%*s", ipHeader, macHeader, starting_space, hostHeader);
+  wmove(wins->arp_left_cont->win, 2, 0);
+  waddch(wins->arp_left_cont->win, ' ');
+  
+  for(int i = 1; i < wins->arp_left_cont->num_col - 1; i++)
+  {
+    waddch(wins->arp_left_cont->win, ACS_HLINE); 
+  }
+  //waddch(wins->arp_left_cont->win, '\n');
+
+  wins->arp_left = setupArea(max_row - 3, max_col / 2 - 1, 4, 0);
   wins->arp_right = setupArea(max_row - 3, max_col / 2 - 1, 2, max_col / 2 + 1);
 
   scrollok(wins->arp_right->win, 1);
@@ -33,6 +51,7 @@ void initScreen(winStruct* wins)
   wins->tab_bar = setupArea(2, max_col, 0, 0);
   wborder(wins->tab_bar->win, ' ', ' ', ' ', ACS_HLINE, ' ', ' ', ' ', ' ');
   wins->bot_bar = setupArea(1, max_col, LINES - 1, 0);
+  wins->cmd_bar= setupArea(1, max_col, LINES - 2, 0);
   /* help should be on top of the panel stack */
   wins->help_win = setupArea(max_row, max_col, 0, 0);
 
@@ -84,10 +103,10 @@ void parseInput(winStruct* wins)
   int currentTab = 0;
   area_info* active_win = wins->arp_left;
   set_panel_userptr(active_win->panel, 0);
+  keypad(wins->cmd_bar->win, TRUE);
   while(!quit)
   {
-    mvprintw(LINES - 2, 0, "Got ");
-    ch = getch();
+    ch = wgetch(wins->cmd_bar->win);
     switch(ch)
     {
       /* next tab */
@@ -114,9 +133,33 @@ void parseInput(winStruct* wins)
       case KEY_UP:
         selectPrevLine(active_win);
         break;
+      case ':':
+        wprintw(wins->cmd_bar->win, "%c ", ch);
+        update_panels();
+        doupdate();
+        int max_size = 100;
+        char* buffer = (char*)calloc(max_size, sizeof(char));
+        int buf_size = 0;
+        while((ch = wgetch(wins->cmd_bar->win)) != '\n')
+        {
+          wprintw(wins->cmd_bar->win, "%c", ch);
+          update_panels();
+          doupdate();
+          *(buffer + buf_size++) = ch;
+          if(buf_size == max_size)
+          {
+            max_size += max_size;
+            buffer = realloc(buffer, max_size);
+          }
+        }
+        parseCommand(wins, buffer);
+        break;
       default:
-        printw("%c", ch);
+        break;
+        //printw("%c", ch);
     }
+    update_panels();
+    doupdate();
   }
   exit(1);
 }
@@ -162,8 +205,8 @@ void selectNextLine(area_info* active_win)
   
   int old_col, old_row;
   getyx(active_win->win, old_col, old_row);
-  mvwchgat(active_win->win, resp_info->selected++ + 2, 0, -1, A_NORMAL, 1, NULL);
-  mvwchgat(active_win->win, resp_info->selected + 2, 0, -1, A_REVERSE, 1, NULL);
+  mvwchgat(active_win->win, resp_info->selected++, 0, -1, A_NORMAL, 1, NULL);
+  mvwchgat(active_win->win, resp_info->selected, 0, -1, A_REVERSE, 1, NULL);
   wmove(active_win->win, old_row, old_col);
   update_panels();
   pthread_mutex_unlock(&resp_info->lock);
@@ -183,9 +226,15 @@ void selectPrevLine(area_info* active_win)
   
   int old_col, old_row;
   getyx(active_win->win, old_col, old_row);
-  mvwchgat(active_win->win, resp_info->selected-- + 2, 0, -1, A_NORMAL, 1, NULL);
-  mvwchgat(active_win->win, resp_info->selected + 2, 0, -1, A_REVERSE, 1, NULL);
+  mvwchgat(active_win->win, resp_info->selected--, 0, -1, A_NORMAL, 1, NULL);
+  mvwchgat(active_win->win, resp_info->selected, 0, -1, A_REVERSE, 1, NULL);
   wmove(active_win->win, old_row, old_col);
   update_panels();
   pthread_mutex_unlock(&resp_info->lock);
+}
+
+void parseCommand(winStruct* wins, char* buffer)
+{
+  wclear(wins->cmd_bar->win);
+  wprintw(wins->cmd_bar->win, "Noice %s\n", buffer);
 }
