@@ -1,18 +1,18 @@
 # NIOH
 This is No Intention Of Harming. A suite to perform various attacks
 
-##Installation
+## Installation
 Run 
 ```
 make
 ```
 If this fails, please see the [Error Handling](#error-handling) section.
 
-##OS Support
+## OS Support
 
 As of now NIOH was only tested on Ubuntu.
 
-##Error Handling
+## Error Handling
 
 ### curses.h not found
 NIOH requires the ncurses library, if you are seeing the following error
