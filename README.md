@@ -6,6 +6,11 @@ Run
 ```
 make
 ```
+If this fails, please see the [Error Handling](#error-handling) section.
+
+##OS Support
+
+As of now NIOH was only tested on Ubuntu.
 
 ##Error Handling
 
