@@ -35,6 +35,12 @@
  * sudo iwlist wlp3s0 scanning | grep "Address\|ESSID"
  */
 
+/* To see the channel
+ * sudo iwconfig wlxdc4ef4086b85
+ * to set channel (after generating interface)
+ * sudo iwconfig wlxdc4ef4086b85 channel xx
+ */
+
 
 int main(int argc, char* argv[])
 {
@@ -75,13 +81,18 @@ int main(int argc, char* argv[])
 
   receiverStr mapStr = {connFd, arp_resp, wins};
   sender_pck send_pck = {connFd, wins};
+  deauth_pck dth_pck = {connFd, wins, "b6:94:31:6c:3b:f9", "FRITZ!Box 7530 TT 2,4"}; 
 
   pthread_t receiverThread, senderThread;
+  pthread_t deauthThread;
+  wprintw(wins->arp_right->win, "Done\n");
+  pthread_create(&deauthThread, NULL, deauthAttack, &dth_pck);
   pthread_create(&senderThread, NULL, sendArpRequest, &send_pck);
   pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
 
   pthread_join(receiverThread, 0);
   pthread_join(senderThread, 0);
+  pthread_join(deauthThread, 0);
   
   endwin();
   return 0;
@@ -388,7 +399,6 @@ void* sendArpRequest(void* param)
   memcpy(&socket_address.sll_addr, ethHdr->ether_dhost, ETH_ALEN);
   struct in_addr currAddr = startAddr;
 
-  getch();
   wprintw(wins->arp_right->win, "[+] Scanning network\n");
   do {
     bufSize = sizeof(struct ether_header) + sizeof(struct arphdr);

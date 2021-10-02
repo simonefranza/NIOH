@@ -65,5 +65,6 @@ int printArpCode(winStruct* wins, struct arphdr* hdr);
 void addArpMapping(winStruct* wins, struct arpCont* arpContResp, arp_resp_info* resp_info);
 int updateAddr(struct in_addr* currAddr, uint8_t* startAddr, uint8_t* endAddr);
 void* sendArpRequest(void* param);
+void* deauthAttack(void* param);
 void* recvMessage(void* param);
 int find(winStruct* wins, struct arpCont* arpContResp, arp_resp_info* resp_info);
