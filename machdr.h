@@ -3,6 +3,7 @@
 #include <net/ethernet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 struct frame_control_flags 
 {

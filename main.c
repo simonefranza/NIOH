@@ -1,3 +1,4 @@
+//Uncomment to run addrinfo
 //#define _POSIX_C_SOURCE 200112L
 #include "main.h"
 
@@ -78,9 +79,9 @@ int main(int argc, char* argv[])
 
   pthread_t receiverThread, senderThread;
   pthread_create(&senderThread, NULL, sendArpRequest, &send_pck);
-  pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
+  //pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
 
-  pthread_join(receiverThread, 0);
+  //pthread_join(receiverThread, 0);
   pthread_join(senderThread, 0);
   
   endwin();
@@ -89,7 +90,8 @@ int main(int argc, char* argv[])
 
 char* getSMac()
 {
-  FILE* ptr = fopen("/sys/class/net/wlp3s0/address", "r");
+  //FILE* ptr = fopen("/sys/class/net/wlp3s0/address", "r");
+  FILE* ptr = fopen("/sys/class/net/ni0h/address", "r");
   char* smac = (char*)calloc((MAC_COLON_LEN + 1), sizeof(char));
   if(!smac)
   {
@@ -103,7 +105,8 @@ char* getSMac()
 
 char* getBroadcastMac()
 {
-  FILE* ptr = fopen("/sys/class/net/wlp3s0/broadcast", "r");
+  //FILE* ptr = fopen("/sys/class/net/wlp3s0/broadcast", "r");
+  FILE* ptr = fopen("/sys/class/net/ni0h/broadcast", "r");
   char* broad = (char*)calloc((MAC_COLON_LEN + 1), sizeof(char));
   if(!broad)
   {
