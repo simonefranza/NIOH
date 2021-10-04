@@ -8,9 +8,12 @@
 #include "nw_header.h"
 
 #define MAC_COLON_LEN 17
-#define DEFAULT_IF "wlp3s0"
-#define PLUG_IF "wlxdc4ef4086b85"
-#define VIRT_NET "wlxdc4ef4086b85"
+//#define DEFAULT_IF "wlp3s0"
+#define DEFAULT_IF "wlan0" //Wlan used to connect
+//#define PLUG_IF "wlxdc4ef4086b85"
+//#define VIRT_NET "wlxdc4ef4086b85"
+#define PLUG_IF "ni0h"
+#define VIRT_NET "ni0h"
 
 typedef struct mapping
 {

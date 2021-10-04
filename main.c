@@ -56,6 +56,8 @@ int main(int argc, char* argv[])
 
 
   int connFd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+  wprintw(wins->arp_right->win, "Conn Fd %d\n", connFd);
+
   if(connFd == -1)
   {
     wprintw(wins->arp_right->win, "Failed to open socket\n");
@@ -88,13 +90,13 @@ int main(int argc, char* argv[])
   pthread_t receiverThread, senderThread;
   pthread_t deauthThread;
   wprintw(wins->arp_right->win, "Done\n");
-  pthread_create(&deauthThread, NULL, deauthAttack, &dth_pck);
+//  pthread_create(&deauthThread, NULL, deauthAttack, &dth_pck);
   pthread_create(&senderThread, NULL, sendArpRequest, &send_pck);
   pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
 
   pthread_join(receiverThread, 0);
   pthread_join(senderThread, 0);
-  pthread_join(deauthThread, 0);
+ // pthread_join(deauthThread, 0);
   
   endwin();
   return 0;
@@ -103,7 +105,8 @@ int main(int argc, char* argv[])
 char* getSMac()
 {
   //FILE* ptr = fopen("/sys/class/net/wlp3s0/address", "r");
-  FILE* ptr = fopen("/sys/class/net/ni0h/address", "r");
+  //FILE* ptr = fopen("/sys/class/net/ni0h/address", "r");
+  FILE* ptr = fopen("/sys/class/net/wlan1/address", "r");
   char* smac = (char*)calloc((MAC_COLON_LEN + 1), sizeof(char));
   if(!smac)
   {
@@ -118,7 +121,8 @@ char* getSMac()
 char* getBroadcastMac()
 {
   //FILE* ptr = fopen("/sys/class/net/wlp3s0/broadcast", "r");
-  FILE* ptr = fopen("/sys/class/net/ni0h/broadcast", "r");
+  //FILE* ptr = fopen("/sys/class/net/ni0h/broadcast", "r");
+  FILE* ptr = fopen("/sys/class/net/wlan1/broadcast", "r");
   char* broad = (char*)calloc((MAC_COLON_LEN + 1), sizeof(char));
   if(!broad)
   {
@@ -341,11 +345,12 @@ void* sendArpRequest(void* param)
 
   struct ifreq if_idx;
   struct ifreq if_mac;
+  
   /* Get the index of the interface to send on */
   memset(&if_idx, 0, sizeof(struct ifreq));
   strncpy(if_idx.ifr_name, DEFAULT_IF, IFNAMSIZ-1);
-  if (ioctl(connFd, SIOCGIFINDEX, &if_idx) < 0)
-      perror("SIOCGIFINDEX");
+  if (ioctl(connFd, (long unsigned int)SIOCGIFINDEX, &if_idx) < 0)
+    perror("SIOCGIFINDEX");
   /* Get the MAC address of the interface to send on */
   memset(&if_mac, 0, sizeof(struct ifreq));
   strncpy(if_mac.ifr_name, DEFAULT_IF, IFNAMSIZ-1);
@@ -357,6 +362,9 @@ void* sendArpRequest(void* param)
   char* ownIpStr = (char*)calloc(16, sizeof(char));
   struct ifaddrs *id;
   getifaddrs(&id);
+  struct ifaddrs *ifa = id;
+  struct sockaddr_in *sa;
+    char *addr;
   while(id)
   {
     if (id->ifa_addr && id->ifa_addr->sa_family==AF_INET && !strcmp(DEFAULT_IF, id->ifa_name)) {
@@ -367,7 +375,15 @@ void* sendArpRequest(void* param)
     }
     id = id->ifa_next;
   }
+  if(!ownIp || !netmask)
+  {
+    perror("Failed to find IP or netmask");
+    wprintw(wins->arp_right->win, "Failed to find IP or netmask\n");
+    usleep(10000000);
+    return (void*)-1;
+  }
   wprintw(wins->arp_right->win, "%s\n", inet_ntoa(netmask->sin_addr));
+  update_panels();
   if(!ownIp)
   {
     wprintw(wins->arp_right->win, "Fatal no own ip found\n");
