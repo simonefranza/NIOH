@@ -71,3 +71,4 @@ void* sendArpRequest(void* param);
 void* deauthAttack(void* param);
 void* recvMessage(void* param);
 int find(winStruct* wins, struct arpCont* arpContResp, arp_resp_info* resp_info);
+void* wlanScan(void* param);

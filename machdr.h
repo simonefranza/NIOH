@@ -31,18 +31,32 @@ struct machdr
   uint8_t frag_num                  :4;
 } __attribute__ ((__packed__));
 
+struct beacon_frame
+{
+  uint64_t timestamp;
+  uint16_t interval;
+  uint16_t capability;
+  uint8_t ssid_id;
+  uint8_t ssid_len;
+} __attribute__ ((__packed__));
+
 /* MAC Header Type */
 #define TYPE_MANAGEMENT   0x0
 #define TYPE_CONTROL      0x1
 #define TYPE_DATA         0x2
 #define MAC_RESERVED      0x3
 
+extern const char* MAC_HEADER_TYPE[];
+
 /* Subtypes */
 #define SUB_ASSOC         0x0 // Association Request - Management
 #define SUB_PROBE         0x4 // Probe Request - Management
 #define SUB_BEACON        0x8 // Beacon - Management
-#define SUB_DISASSOC      0xa // Disassociation - Type Data
+#define SUB_DISASSOC      0xa // Disassociation - Management 
+#define SUB_AUTH          0xb // Authentication - Management 
 #define SUB_DEAUTH        0xc // Deauthentication - Management
+
+extern const char* MAC_HEADER_SUBTYPE[];
 
 /* Deauth Reason Codes */
 #define DRC_UNSPEC             0x1
